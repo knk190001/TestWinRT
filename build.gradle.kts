@@ -20,6 +20,8 @@ repositories {
 dependencies {
     testImplementation(kotlin("test"))
     implementation("com.github.knk190001:windows-kt:0.1.0")
+//    implementation("com.github.knk190001")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
 }
 
 tasks.test {
