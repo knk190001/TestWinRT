@@ -20,7 +20,7 @@ repositories {
 dependencies {
     testImplementation(kotlin("test"))
     implementation("com.github.knk190001:windows-kt:0.1.0")
-//    implementation("com.github.knk190001")
+    implementation("com.github.doyaaaaaken:kotlin-csv-jvm:1.8.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
 }
 
