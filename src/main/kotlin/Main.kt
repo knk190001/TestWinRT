@@ -9,7 +9,6 @@ import Windows.Data.Text.SelectableWordSegmentsTokenizingHandler
 import Windows.Data.Text.SelectableWordsSegmenter
 import Windows.Foundation.*
 import Windows.Foundation.Collections.IVectorView
-import Windows.Foundation.Collections.IVectorView_Single_
 import Windows.Graphics.Imaging.BitmapDecoder
 import Windows.Media.VideoFrame
 import Windows.Storage.FileAccessMode
@@ -17,7 +16,10 @@ import com.github.doyaaaaaken.kotlincsv.dsl.context.ExcessFieldsRowBehaviour
 import com.github.doyaaaaaken.kotlincsv.dsl.context.InsufficientFieldsRowBehaviour
 import com.github.doyaaaaaken.kotlincsv.dsl.csvReader
 import com.github.knk190001.winrtbinding.runtime.interfaces.IUnknown
+import com.sun.jna.CallbackReference
 import com.sun.jna.FromNativeContext
+import com.sun.jna.Function
+import com.sun.jna.Native
 import com.sun.jna.platform.win32.COM.Unknown
 import com.sun.jna.platform.win32.WinDef
 import kotlinx.coroutines.delay
@@ -47,17 +49,18 @@ fun main() = runBlocking {
     println(jsonObject.Stringify())
 
 
+
     val segmenter = SelectableWordsSegmenter("en-US")
     val handler = SelectableWordSegmentsTokenizingHandler.create { precedingWords, words ->
-        val precedingWordsIttr = precedingWords!!.First()
+        val precedingWordsIttr = precedingWords!!.First()!!
         while (precedingWordsIttr.get_HasCurrent()) {
-            println("Preceding: " + precedingWordsIttr.get_Current().get_Text())
+            println("Preceding: " + precedingWordsIttr.get_Current()!!.get_Text())
             precedingWordsIttr.MoveNext()
         }
 
-        val wordsItr = words!!.First()
+        val wordsItr = words!!.First()!!
         while (wordsItr.get_HasCurrent()) {
-            println("Word: " + wordsItr.get_Current().get_Text())
+            println("Word: " + wordsItr.get_Current()!!.get_Text())
             wordsItr.MoveNext()
         }
     }
@@ -116,38 +119,38 @@ fun loadLabels(labelsPath: Path): Map<Int, List<String>> {
 }
 
 fun evaluateModel(session: LearningModelSession, binding: LearningModelBinding): IVectorView<Float> {
-    val results = session.Evaluate(binding, "RunId")
-    val outputs = results.get_Outputs()
+    val results = session.Evaluate(binding, "RunId")!!
+    val outputs = results.get_Outputs()!!
     println("Outputs: " + outputs.get_Size())
-    val kvp = outputs.First().get_Current()
+    val kvp = outputs.First()!!.get_Current()!!
     println("Key: ${kvp.get_Key()}")
-    val o = results.get_Outputs().Lookup("softmaxout_1")
+    val o = outputs.Lookup("softmaxout_1")!!
     val resultTensor = TensorFloat(o.iUnknown_Ptr)
-    return resultTensor.GetAsVectorView()
+    return resultTensor.GetAsVectorView()!!
 }
 
 suspend fun bindModel(model: LearningModel, imageFrame: VideoFrame): Pair<LearningModelSession, LearningModelBinding> {
     val device = LearningModelDevice(LearningModelDeviceKind.Default)
     val session = LearningModelSession(model, device)
     val binding = LearningModelBinding(session)
-    val imageFeatureValue = ImageFeatureValue.CreateFromVideoFrame(imageFrame)
+    val imageFeatureValue = ImageFeatureValue.CreateFromVideoFrame(imageFrame)!!
     binding.Bind("data_0", IUnknown.ABI.makeIUnknown(imageFeatureValue.pointer))
     val shape =
         TensorFloat.CreateFromShapeArrayAndDataArray(
             arrayOf(1L, 1000L, 1L, 1L),
             Array(1000) { 0f }
-        )
+        )!!
 
     binding.Bind("softmaxout_1", IUnknown.ABI.makeIUnknown(shape.pointer))
     return session to binding
 }
 
 suspend fun loadImageFile(imageFile: Path): VideoFrame {
-    val file = StorageFile.GetFileFromPathAsync(imageFile.pathString).await()
-    val stream = file!!.OpenAsync(FileAccessMode.Read).await()!!
-    val decoder = BitmapDecoder.CreateAsync(stream).await()
-    val softwareBitmap = decoder!!.GetSoftwareBitmapAsync().await()!!
-    return VideoFrame.CreateWithSoftwareBitmap(softwareBitmap)
+    val file = StorageFile.GetFileFromPathAsync(imageFile.pathString)!!.await()
+    val stream = file!!.OpenAsync(FileAccessMode.Read)!!.await()!!
+    val decoder = BitmapDecoder.CreateAsync(stream)!!.await()
+    val softwareBitmap = decoder!!.GetSoftwareBitmapAsync()!!.await()!!
+    return VideoFrame.CreateWithSoftwareBitmap(softwareBitmap)!!
 }
 
 suspend inline fun <reified T> IAsyncOperation<T>.await(): T {
@@ -164,7 +167,8 @@ suspend inline fun <reified T> IAsyncOperation<T>.await(): T {
 
 suspend fun StorageFile.Companion.GetFileFromPathSuspend(path: String): StorageFile {
     var status = AsyncStatus.Started
-    val async = StorageFile.GetFileFromPathAsync(path)
+    val async = StorageFile.GetFileFromPathAsync(path)!!
+
     val completedHandler = AsyncOperationCompletedHandler_StorageFile_.create { asyncInfo, asyncStatus ->
         status = asyncStatus!!
     }
@@ -175,9 +179,9 @@ suspend fun StorageFile.Companion.GetFileFromPathSuspend(path: String): StorageF
     if (status != AsyncStatus.Completed) {
         throw Error("Error")
     }
-    return async.GetResults()
+    return async.GetResults()!!
 }
 
 fun loadModel(modelPath: Path): LearningModel {
-    return LearningModel.LoadFromFilePath(modelPath.pathString)
+    return LearningModel.LoadFromFilePath(modelPath.pathString)!!
 }
