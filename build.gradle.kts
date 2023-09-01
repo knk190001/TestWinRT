@@ -26,8 +26,7 @@ repositories {
 
 dependencies {
     testImplementation(kotlin("test"))
-    implementation("com.github.knk190001:windows-kt:0.1.0")
-    implementation("com.github.doyaaaaaken:kotlin-csv-jvm:1.8.0")
+    implementation("com.github.knk190001:windows-kt:0.1.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.8.21")
     implementation(kotlin("stdlib"))
@@ -54,5 +53,13 @@ kotlin {
         languageSettings {
             languageVersion = "2.0"
         }
+    }
+}
+
+tasks.create("printRuntimeClasspath") {
+    val runtimeClasspath = sourceSets.main.get().runtimeClasspath
+    inputs.files(runtimeClasspath)
+    doLast {
+        println(sourceSets["main"].runtimeClasspath.joinToString("\n"))
     }
 }

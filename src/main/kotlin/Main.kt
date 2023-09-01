@@ -1,31 +1,31 @@
+import Windows.AI.MachineLearning.LearningModel
+import Windows.AI.MachineLearning.LearningModelBinding
+import Windows.AI.MachineLearning.LearningModelSession
+import Windows.AI.MachineLearning.LearningModelDevice
+import Windows.AI.MachineLearning.LearningModelDeviceKind
+import Windows.AI.MachineLearning.ImageFeatureValue
+import Windows.AI.MachineLearning.TensorFloat
 import Windows.Data.Json.JsonArray
 import Windows.Data.Json.JsonObject
 import Windows.Data.Json.JsonValue
-import Windows.Storage.StorageFile
-import com.github.knk190001.winrtbinding.runtime.WinRT
-import java.nio.file.Path
-import Windows.AI.MachineLearning.*
 import Windows.Data.Text.SelectableWordSegmentsTokenizingHandler
 import Windows.Data.Text.SelectableWordsSegmenter
-import Windows.Foundation.*
+import Windows.Foundation.AsyncOperationCompletedHandler
+import Windows.Foundation.AsyncStatus
 import Windows.Foundation.Collections.IVectorView
+import Windows.Foundation.IAsyncOperation
 import Windows.Graphics.Imaging.BitmapDecoder
 import Windows.Media.VideoFrame
 import Windows.Storage.FileAccessMode
-import com.github.doyaaaaaken.kotlincsv.dsl.context.ExcessFieldsRowBehaviour
-import com.github.doyaaaaaken.kotlincsv.dsl.context.InsufficientFieldsRowBehaviour
-import com.github.doyaaaaaken.kotlincsv.dsl.csvReader
+import Windows.Storage.StorageFile
+import com.github.knk190001.winrtbinding.runtime.WinRT
 import com.github.knk190001.winrtbinding.runtime.interfaces.IUnknown
-import com.sun.jna.CallbackReference
-import com.sun.jna.FromNativeContext
-import com.sun.jna.Function
-import com.sun.jna.Native
-import com.sun.jna.platform.win32.COM.Unknown
 import com.sun.jna.platform.win32.WinDef
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
+import java.nio.file.Path
 import kotlin.io.path.pathString
+import kotlin.io.path.readLines
 
 fun main() = runBlocking {
     WinRT.RoInitialize(0)
@@ -49,9 +49,8 @@ fun main() = runBlocking {
     println(jsonObject.Stringify())
 
 
-
     val segmenter = SelectableWordsSegmenter("en-US")
-    val handler = SelectableWordSegmentsTokenizingHandler.create { precedingWords, words ->
+    val handler = SelectableWordSegmentsTokenizingHandler { precedingWords, words ->
         val precedingWordsIttr = precedingWords!!.First()!!
         while (precedingWordsIttr.get_HasCurrent()) {
             println("Preceding: " + precedingWordsIttr.get_Current()!!.get_Text())
@@ -107,15 +106,9 @@ inline fun <reified T> IVectorView<T>.toArray(): Array<T?> {
 }
 
 fun loadLabels(labelsPath: Path): Map<Int, List<String>> {
-    return csvReader {
-        this.excessFieldsRowBehaviour = ExcessFieldsRowBehaviour.TRIM
-        insufficientFieldsRowBehaviour = InsufficientFieldsRowBehaviour.EMPTY_STRING
-    }
-        .readAll(labelsPath.toFile())
-        .foldRight(mutableMapOf<Int, List<String>>()) { labels, map ->
-            map[labels[0].toInt()] = labels.drop(1)
-            map
-        }
+    return labelsPath.readLines()
+        .map { it.split(",") }
+        .associate { it[0].toInt() to it.drop(1) }
 }
 
 fun evaluateModel(session: LearningModelSession, binding: LearningModelBinding): IVectorView<Float> {
@@ -148,13 +141,20 @@ suspend fun bindModel(model: LearningModel, imageFrame: VideoFrame): Pair<Learni
 suspend fun loadImageFile(imageFile: Path): VideoFrame {
     val file = StorageFile.GetFileFromPathAsync(imageFile.pathString)!!.await()
     val stream = file!!.OpenAsync(FileAccessMode.Read)!!.await()!!
-    val decoder = BitmapDecoder.CreateAsync(stream)!!.await()
-    val softwareBitmap = decoder!!.GetSoftwareBitmapAsync()!!.await()!!
+    val decoder = BitmapDecoder.CreateAsync(stream)!!.await()!!
+    val softwareBitmap = decoder.GetSoftwareBitmapAsync()!!.await()!!
     return VideoFrame.CreateWithSoftwareBitmap(softwareBitmap)!!
 }
 
 suspend inline fun <reified T> IAsyncOperation<T>.await(): T {
-    while (get_Status() != AsyncStatus.Completed) {
+    var completed = false
+    this.put_Completed(AsyncOperationCompletedHandler<T> { _, status ->
+        if (status == AsyncStatus.Completed) {
+            completed = true
+        }
+    })
+
+    while (!completed) {
         if (get_Status() == AsyncStatus.Error || get_Status() == AsyncStatus.Canceled) {
             throw RuntimeException(get_Status().toString())
         }
@@ -164,24 +164,7 @@ suspend inline fun <reified T> IAsyncOperation<T>.await(): T {
     return this.GetResults()
 }
 
-
-suspend fun StorageFile.Companion.GetFileFromPathSuspend(path: String): StorageFile {
-    var status = AsyncStatus.Started
-    val async = StorageFile.GetFileFromPathAsync(path)!!
-
-    val completedHandler = AsyncOperationCompletedHandler_StorageFile_.create { asyncInfo, asyncStatus ->
-        status = asyncStatus!!
-    }
-    async.put_Completed(completedHandler)
-    while (status == AsyncStatus.Started) {
-        delay(20)
-    }
-    if (status != AsyncStatus.Completed) {
-        throw Error("Error")
-    }
-    return async.GetResults()!!
-}
-
 fun loadModel(modelPath: Path): LearningModel {
     return LearningModel.LoadFromFilePath(modelPath.pathString)!!
 }
+
