@@ -5,13 +5,13 @@ import Windows.AI.MachineLearning.LearningModelDevice
 import Windows.AI.MachineLearning.LearningModelDeviceKind
 import Windows.AI.MachineLearning.ImageFeatureValue
 import Windows.AI.MachineLearning.TensorFloat
-import Windows.Data.Json.JsonArray
-import Windows.Data.Json.JsonObject
-import Windows.Data.Json.JsonValue
+import Windows.Data.Json.*
+import Windows.Data.Text.SelectableWordSegment
 import Windows.Data.Text.SelectableWordSegmentsTokenizingHandler
 import Windows.Data.Text.SelectableWordsSegmenter
 import Windows.Foundation.AsyncOperationCompletedHandler
 import Windows.Foundation.AsyncStatus
+import Windows.Foundation.Collections.IIterable
 import Windows.Foundation.Collections.IVectorView
 import Windows.Foundation.IAsyncOperation
 import Windows.Graphics.Imaging.BitmapDecoder
@@ -19,7 +19,7 @@ import Windows.Media.VideoFrame
 import Windows.Storage.FileAccessMode
 import Windows.Storage.StorageFile
 import com.github.knk190001.winrtbinding.runtime.WinRT
-import com.github.knk190001.winrtbinding.runtime.interfaces.IUnknown
+import com.github.knk190001.winrtbinding.runtime.com.IUnknown
 import com.sun.jna.platform.win32.WinDef
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
@@ -29,6 +29,7 @@ import kotlin.io.path.readLines
 
 fun main() = runBlocking {
     WinRT.RoInitialize(0)
+
 
     val jsonObject = JsonObject()
     val jsonArray = JsonArray()
@@ -50,7 +51,8 @@ fun main() = runBlocking {
 
 
     val segmenter = SelectableWordsSegmenter("en-US")
-    val handler = SelectableWordSegmentsTokenizingHandler { precedingWords, words ->
+    val handler = SelectableWordSegmentsTokenizingHandler { precedingWords: IIterable<SelectableWordSegment?>?,
+                                                            words: IIterable<SelectableWordSegment?>? ->
         val precedingWordsIttr = precedingWords!!.First()!!
         while (precedingWordsIttr.get_HasCurrent()) {
             println("Preceding: " + precedingWordsIttr.get_Current()!!.get_Text())
@@ -81,8 +83,9 @@ suspend fun testMl() {
     val (session, binding) = bindModel(model, imageFrame)
     val results = evaluateModel(session, binding)
 
-    val labels_path = contentPath.resolve("Labels.txt")
-    val labels = loadLabels(labels_path)
+    val labelsPath = contentPath.resolve("Labels.txt")
+
+    val labels = loadLabels(labelsPath)
 
     printResults(results, labels)
 }
@@ -168,3 +171,5 @@ fun loadModel(modelPath: Path): LearningModel {
     return LearningModel.LoadFromFilePath(modelPath.pathString)!!
 }
 
+
+//

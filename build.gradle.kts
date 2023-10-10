@@ -10,6 +10,7 @@ version = "1.0-SNAPSHOT"
 
 application {
     mainClass.set("MainKt")
+    applicationDefaultJvmArgs += "--enable-native-access=ALL-UNNAMED"
 }
 
 repositories {
